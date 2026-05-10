@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Maze Pathfinder AI</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #2c3e50; color: white; }
+        #controls { margin: 20px; }
+        canvas { border: 4px solid #ecf0f1; background: #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; margin: 0 5px; }
+        button:hover { background: #2980b9; }
+        .legend { margin-top: 10px; font-size: 0.9em; color: #bdc3c7; }
+    </style>
+</head>
+<body>
+
+    <h2>Maze Generator & Pathfinder</h2>
+    <div id="controls">
+        <button onclick="generateMaze()">Generate New Maze</button>
+        <button onclick="startSolving()" style="background: #27ae60;">Solve with AI</button>
+    </div>
+
+    <canvas id="mazeCanvas"></canvas>
+
+    <div class="legend">
+        Blue: Start | Red: Goal | Green: Explored | Yellow: Path
+    </div>
+
+<script>
+const canvas = document.getElementById('mazeCanvas');
+const ctx = canvas.getContext('2d');
+
+const ROWS = 21; // Must be odd for the maze generator
+const COLS = 21;
+const SIZE = 30;
+canvas.width = COLS * SIZE;
+canvas.height = ROWS * SIZE;
+
+let grid = [];
+
+// 0: Wall, 1: Path, 2: Start, 3: Goal, 4: Visiting, 5: Final Path
+function initGrid() {
+    grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] === 0) ctx.fillStyle = "#2c3e50"; // Wall
+            else if (grid[r][c] === 1) ctx.fillStyle = "#fff"; // Path
+            else if (grid[r][c] === 2) ctx.fillStyle = "#3498db"; // Start
+            else if (grid[r][c] === 3) ctx.fillStyle = "#e74c3c"; // Goal
+            else if (grid[r][c] === 4) ctx.fillStyle = "#2ecc71"; // Visiting
+            else if (grid[r][c] === 5) ctx.fillStyle = "#f1c40f"; // Final Path
+            
+            ctx.fillRect(c * SIZE, r * SIZE, SIZE, SIZE);
+            ctx.strokeStyle = "#ddd";
+            ctx.strokeRect(c * SIZE, r * SIZE, SIZE, SIZE);
+        }
+    }
+}
+
+// --- Recursive Backtracker Maze Generation ---
+function generateMaze() {
+    initGrid();
+    function walk(r, c) {
+        grid[r][c] = 1;
+        const dirs = [[0, 2], [0, -2], [2, 0], [-2, 0]].sort(() => Math.random() - 0.5);
+        
+        for (let [dr, dc] of dirs) {
+            let nr = r + dr, nc = c + dc;
+            if (nr > 0 && nr < ROWS && nc > 0 && nc < COLS && grid[nr][nc] === 0) {
+                grid[r + dr/2][c + dc/2] = 1;
+                walk(nr, nc);
+            }
+        }
+    }
+    walk(1, 1);
+    grid[1][1] = 2; // Start
+    grid[ROWS-2][COLS-2] = 3; // Goal
+    draw();
+}
+
+// --- BFS Pathfinding ---
+async function startSolving() {
+    let queue = [{ r: 1, c: 1, path: [] }];
+    let visited = new Set(["1,1"]);
+    
+    while (queue.length > 0) {
+        let { r, c, path } = queue.shift();
+        
+        if (grid[r][c] === 3) {
+            // Found it! Draw the final path
+            for (let p of path) {
+                if (grid[p.r][p.c] !== 2) grid[p.r][p.c] = 5;
+                draw();
+                await new Promise(r => setTimeout(r, 30));
+            }
+            return;
+        }
+
+        if (grid[r][c] === 1) grid[r][c] = 4; // Mark as visiting
+        
+        const neighbors = [[r-1, c], [r+1, c], [r, c-1], [r, c+1]];
+        for (let [nr, nc] of neighbors) {
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && 
+                grid[nr][nc] !== 0 && !visited.has(`${nr},${nc}`)) {
+                visited.add(`${nr},${nc}`);
+                queue.push({ r: nr, c: nc, path: [...path, {r, c}] });
+            }
+        }
+        
+        draw();
+        await new Promise(r => setTimeout(r, 10)); // Animation speed
+    }
+}
+
+generateMaze();
+</script>
+</body>
+</html>
